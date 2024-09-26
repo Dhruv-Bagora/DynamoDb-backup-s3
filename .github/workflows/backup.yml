@@ -57,9 +57,12 @@ jobs:
           
           for TABLE in $TABLES
           do
-            echo "Exporting table $TABLE to S3 in folder $BACKUP_DATE"
+            # Retrieve the table ARN
+            TABLE_ARN=$(aws dynamodb describe-table --table-name $TABLE --query "Table.TableArn" --output text)
+            echo "Exporting table $TABLE (ARN: $TABLE_ARN) to S3 in folder $BACKUP_DATE"
+
             aws dynamodb export-table-to-point-in-time \
-              --table-name $TABLE \
+              --table-arn $TABLE_ARN \
               --s3-bucket "${{ github.event.inputs.s3_bucket }}" \
               --s3-prefix "${BACKUP_DATE}/${{ github.event.inputs.environment }}-backup/$TABLE" \
               --export-format DYNAMODB_JSON
