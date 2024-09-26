@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       all_or_custom:
-        description: 'Choose whether to back up all tables or custom tables'
+        description: Backup all or custom tables
         required: true
         default: 'all'
         type: choice
@@ -12,21 +12,21 @@ on:
           - all
           - custom
       custom_tables:
-        description: 'Comma-separated list of custom table names (required if custom is selected)'
+        description: Custom table names
         required: false
       environment:
-        description: 'Environment to run the backup (prod, uat, or qa)'
+        description: Environment
         required: true
         default: 'uat'
       s3_bucket:
-        description: 'S3 Bucket to store the backup'
+        description: Name of s3 bucket
         required: true
 
 jobs:
   dynamodb-backup:
     runs-on: ubuntu-latest
     env:
-      AWS_REGION: 'eu-north-1'  # Set your AWS region here
+      AWS_REGION: 'eu-north-1'  
 
     steps:
       - name: Set AWS Credentials
@@ -73,23 +73,21 @@ jobs:
 
       - name: Dump DynamoDB Tables to S3 and DynamoDB
         run: |
-          # Get the current date in YYYY-MM-DD-HH-MM-SS format
           BACKUP_DATE=$(date +%F-%H-%M-%S)
           
           for TABLE in $TABLES
           do
-            # Retrieve the table ARN
             TABLE_ARN=$(aws dynamodb describe-table --table-name $TABLE --query "Table.TableArn" --output text)
             echo "Exporting table $TABLE (ARN: $TABLE_ARN) to S3 in folder $BACKUP_DATE"
 
-            # S3 Backup: Export DynamoDB table to S3
+            #Dynamo to s3
             aws dynamodb export-table-to-point-in-time \
               --table-arn $TABLE_ARN \
               --s3-bucket "${{ github.event.inputs.s3_bucket }}" \
               --s3-prefix "${BACKUP_DATE}/${{ github.event.inputs.environment }}-backup/$TABLE" \
               --export-format DYNAMODB_JSON
 
-            # DynamoDB Backup: Create an on-demand backup
+            #Dynamo to Dynamo itself
             BACKUP_NAME="${{ github.event.inputs.environment }}-${TABLE}-backup-${BACKUP_DATE}"
             echo "Creating an on-demand backup of table $TABLE with backup name $BACKUP_NAME"
             
