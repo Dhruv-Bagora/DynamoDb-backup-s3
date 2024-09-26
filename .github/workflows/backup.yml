@@ -18,6 +18,11 @@ on:
         description: Environment
         required: true
         default: 'uat'
+        type: choice
+        options:
+          - qa
+          - uat
+          - prod
       s3_bucket:
         description: Name of s3 bucket
         required: true
