@@ -36,6 +36,7 @@ jobs:
             echo "::add-mask::${{ secrets.AWS_SECRET_ACCESS_KEY_UAT }}"
             echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID_UAT }}" >> $GITHUB_ENV
             echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY_UAT }}" >> $GITHUB_ENV
+          fi
 
       - name: Install AWS CLI
         run: |
