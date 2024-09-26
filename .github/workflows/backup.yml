@@ -4,11 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       all_or_custom:
-        description: 'Choose to backup all tables or custom tables (all/custom)'
+        description: 'Choose whether to back up all tables or custom tables'
         required: true
         default: 'all'
+        type: choice
+        options:
+          - all
+          - custom
       custom_tables:
-        description: 'Comma-separated list of custom table names (used if all_or_custom is set to custom)'
+        description: 'Comma-separated list of custom table names (required if custom is selected)'
         required: false
       environment:
         description: 'Environment to run the backup (prod, uat, or qa)'
@@ -56,7 +60,11 @@ jobs:
           if [ "${{ github.event.inputs.all_or_custom }}" == "all" ]; then
             # List all DynamoDB tables
             TABLES=$(aws dynamodb list-tables --query "TableNames[]" --output text)
-          else
+          elif [ "${{ github.event.inputs.all_or_custom }}" == "custom" ]; then
+            if [ -z "${{ github.event.inputs.custom_tables }}" ]; then
+              echo "Error: custom_tables input is required when 'custom' is selected."
+              exit 1
+            fi
             # Use the provided custom tables, split by comma and remove spaces
             TABLES=$(echo "${{ github.event.inputs.custom_tables }}" | tr ',' ' ')
           fi
