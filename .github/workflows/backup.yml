@@ -1,0 +1,65 @@
+name: DynamoDB Dump to S3
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run the backup (prod, uat, or qa)'
+        required: true
+        default: 'uat'
+      s3_bucket:
+        description: 'S3 Bucket to store the backup'
+        required: true
+
+jobs:
+  dynamodb-backup:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: 'eu-north-1'  # Set your AWS region here
+
+    steps:
+      - name: Set AWS Credentials
+        id: set-aws-creds
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "::add-mask::${{ secrets.AWS_ACCESS_KEY_ID_PROD }}"
+            echo "::add-mask::${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}"
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID_PROD }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "qa" ]; then
+            echo "::add-mask::${{ secrets.AWS_ACCESS_KEY_ID_QA }}"
+            echo "::add-mask::${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}"
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID_QA }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}" >> $GITHUB_ENV
+          else
+            echo "::add-mask::${{ secrets.AWS_ACCESS_KEY_ID_UAT }}"
+            echo "::add-mask::${{ secrets.AWS_SECRET_ACCESS_KEY_UAT }}"
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID_UAT }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY_UAT }}" >> $GITHUB_ENV
+
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install awscli -y
+
+      - name: List DynamoDB Tables
+        id: list-tables
+        run: |
+          # List all DynamoDB tables
+          TABLES=$(aws dynamodb list-tables --query "TableNames[]" --output text)
+          echo "TABLES=$TABLES" >> $GITHUB_ENV
+
+      - name: Dump DynamoDB Tables to S3
+        run: |
+          # Get the current date in YYYY-MM-DD-HH-MM-SS format
+          BACKUP_DATE=$(date +%F-%H-%M-%S)
+          
+          for TABLE in $TABLES
+          do
+            echo "Exporting table $TABLE to S3 in folder $BACKUP_DATE"
+            aws dynamodb export-table-to-point-in-time \
+              --table-name $TABLE \
+              --s3-bucket "${{ github.event.inputs.s3_bucket }}" \
+              --s3-prefix "${BACKUP_DATE}/${{ github.event.inputs.environment }}-backup/$TABLE" \
+              --export-format DYNAMODB_JSON
+          done
