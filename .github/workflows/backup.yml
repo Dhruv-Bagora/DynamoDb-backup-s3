@@ -3,6 +3,13 @@ name: DynamoDB Dump to S3 and DynamoDB
 on:
   workflow_dispatch:
     inputs:
+      all_or_custom:
+        description: 'Choose to backup all tables or custom tables (all/custom)'
+        required: true
+        default: 'all'
+      custom_tables:
+        description: 'Comma-separated list of custom table names (used if all_or_custom is set to custom)'
+        required: false
       environment:
         description: 'Environment to run the backup (prod, uat, or qa)'
         required: true
@@ -43,12 +50,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install awscli -y
 
-      - name: List DynamoDB Tables
-        id: list-tables
+      - name: Determine Tables to Backup
+        id: determine-tables
         run: |
-          # List all DynamoDB tables
-          TABLES=$(aws dynamodb list-tables --query "TableNames[]" --output text)
+          if [ "${{ github.event.inputs.all_or_custom }}" == "all" ]; then
+            # List all DynamoDB tables
+            TABLES=$(aws dynamodb list-tables --query "TableNames[]" --output text)
+          else
+            # Use the provided custom tables, split by comma and remove spaces
+            TABLES=$(echo "${{ github.event.inputs.custom_tables }}" | tr ',' ' ')
+          fi
           echo "TABLES=$TABLES" >> $GITHUB_ENV
+          echo "Tables selected for backup: $TABLES"
 
       - name: Dump DynamoDB Tables to S3 and DynamoDB
         run: |
